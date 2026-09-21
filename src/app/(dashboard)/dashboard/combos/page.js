@@ -50,6 +50,7 @@ const STRATEGY_OPTIONS = [
   { value: "fallback", label: "Fallback — try in order" },
   { value: "round-robin", label: "Round Robin — rotate" },
   { value: "fusion", label: "Fusion — panel + judge" },
+  { value: "smart", label: "Smart — Jev complexity routing" },
 ];
 
 export default function CombosPage() {
