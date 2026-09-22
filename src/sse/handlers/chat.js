@@ -17,6 +17,7 @@ import { appendPxpipeEvent } from "@/lib/pxpipe/events.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { handleComboChat, handleFusionChat, detectRequiredCapabilities, reorderModelsForTier } from "open-sse/services/combo.js";
 import { classifyTier } from "open-sse/services/jevClassifier.js";
+import { handleSystemone } from "./systemone.js";
 import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "open-sse/services/capacityAdapter.js";
 import { handleBypassRequest } from "open-sse/utils/bypassHandler.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
@@ -133,15 +134,27 @@ export async function handleChat(request, clientRawRequest = null) {
     if (comboStrategy === "smart") {
       const smartCfg = comboStrategies[modelStr] || {};
       const tierMap = smartCfg.smartTiers;
+      const classifierModel = smartCfg.smartClassifierModel;
       const classified = await classifyTier({
         body,
         log,
+        classifierModel: classifierModel || undefined,
         criteria: smartCfg.smartCriteria,
         instructions: smartCfg.smartInstructions,
         minConfidence: smartCfg.smartMinConfidence,
         timeoutMs: smartCfg.smartTimeoutMs,
+        evaluateSystemone: (payload, model) => {
+          const headers = new Headers({ "Content-Type": "application/json" });
+          const authorization = request.headers.get("Authorization");
+          if (authorization) headers.set("Authorization", authorization);
+          return handleSystemone(new Request(new URL("/api/v1/systemone", request.url), {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ ...payload, model }),
+          }));
+        },
       });
-      if (classified && tierMap) {
+      if (classified) {
         const reordered = reorderModelsForTier(augmentedModels, classified.tier, tierMap);
         if (reordered[0] !== augmentedModels[0]) {
           log.info("CHAT", `Combo "${modelStr}" smart-routing tier=${classified.tier} → ${reordered[0]}`);

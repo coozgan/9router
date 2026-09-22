@@ -103,9 +103,23 @@ export function reorderByCapabilities(models, required) {
  * @param {Record<string,string>} [tierMap] - tier → model policy
  * @returns {string[]} reordered models (never drops a model)
  */
+export function inferSmartTierMap(models) {
+  if (!Array.isArray(models) || models.length === 0) return {};
+  const last = models.length - 1;
+  return {
+    REASONING: models[0],
+    COMPLEX: models[0],
+    MEDIUM: models[Math.ceil(last / 2)],
+    SIMPLE: models[last],
+  };
+}
+
 export function reorderModelsForTier(models, tier, tierMap) {
-  if (!Array.isArray(models) || models.length === 0 || !tier || !tierMap) return models;
-  const candidate = tierMap[tier];
+  if (!Array.isArray(models) || models.length === 0 || !tier) return models;
+  const effectiveMap = tierMap && Object.keys(tierMap).length > 0
+    ? tierMap
+    : inferSmartTierMap(models);
+  const candidate = effectiveMap[tier];
   if (typeof candidate !== "string" || !candidate.trim()) return models;
 
   const idx = models.indexOf(candidate);
